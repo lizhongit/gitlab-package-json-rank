@@ -6,12 +6,16 @@ use std::env;
 use std::process;
 use env_logger::Env;
 use std::collections::HashMap;
-use serde::{Deserialize};
+use serde::{Deserialize, Serialize};
+use std::path::Path;
+use std::fs;
+use serde_json::json;
+use chrono::prelude::*;
 
 mod config;
 mod gitlab;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize,Serialize, Debug)]
 struct Pkg {
   dependencies: Option<HashMap<String, String>>,
 
@@ -33,6 +37,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     process::exit(1);
   });
 
+  if !Path::new("./json").exists() {
+    fs::create_dir("./json")?;
+  }
+
   let repos: Vec<gitlab::Repo> = gitlab::get_all_reposities(
     &config.gitlab_url,
     &config.git_token,
@@ -41,7 +49,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     error!("Getting repos from Gitlab: {}", err);
     process::exit(1);
   });
-
 
   let mut package_total: HashMap<String, u32> = HashMap::new();
 
@@ -88,7 +95,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
   }
 
-  println!("{:?}", package_total);
+  let str1 = json!(package_total).to_string();
+  let local: DateTime<Local> = Local::now();
+
+  fs::write(format!("./json/{}.json", local.format("%Y%m%d").to_string()), str1)?;
 
   Ok(())
 }
